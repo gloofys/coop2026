@@ -8,6 +8,5 @@ CREATE TABLE loan_application (
                                   base_interest_rate NUMERIC(10,3) NOT NULL,
                                   loan_amount NUMERIC(12,2) NOT NULL,
                                   status VARCHAR(32) NOT NULL,
-                                  rejection_reason VARCHAR(64),
-                                  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                                  rejection_reason VARCHAR(64)
 );
