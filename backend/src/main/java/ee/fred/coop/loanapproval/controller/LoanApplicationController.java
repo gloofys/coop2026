@@ -1,8 +1,9 @@
 package ee.fred.coop.loanapproval.controller;
 
 import ee.fred.coop.loanapproval.domain.dto.CreateLoanApplicationRequest;
+import ee.fred.coop.loanapproval.domain.dto.LoanApplicationDetailsResponse;
 import ee.fred.coop.loanapproval.domain.dto.LoanApplicationResponse;
-import ee.fred.coop.loanapproval.domain.entity.PaymentScheduleEntry;
+import ee.fred.coop.loanapproval.domain.dto.PaymentScheduleEntryResponse;
 import ee.fred.coop.loanapproval.service.LoanApplicationService;
 import ee.fred.coop.loanapproval.service.PaymentScheduleService;
 import jakarta.validation.Valid;
@@ -32,9 +33,14 @@ public class LoanApplicationController {
         return loanApplicationService.createApplication(request);
     }
 
+    @GetMapping("/{id}")
+    public LoanApplicationDetailsResponse getApplicationDetails(@PathVariable Long id) {
+        return loanApplicationService.getApplicationDetails(id);
+    }
+
     @PostMapping("/{id}/schedule")
     @ResponseStatus(HttpStatus.CREATED)
-    public List<PaymentScheduleEntry> generateSchedule(@PathVariable Long id) {
+    public List<PaymentScheduleEntryResponse> generateSchedule(@PathVariable Long id) {
         return paymentScheduleService.generateSchedule(id);
     }
 }

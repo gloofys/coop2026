@@ -1,5 +1,6 @@
 package ee.fred.coop.loanapproval.service;
 
+import ee.fred.coop.loanapproval.domain.dto.PaymentScheduleEntryResponse;
 import ee.fred.coop.loanapproval.domain.entity.LoanApplication;
 import ee.fred.coop.loanapproval.domain.entity.PaymentScheduleEntry;
 import ee.fred.coop.loanapproval.domain.enums.ApplicationStatus;
@@ -37,7 +38,7 @@ public class PaymentScheduleService {
     }
 
     @Transactional
-    public List<PaymentScheduleEntry> generateSchedule(Long loanApplicationId) {
+    public List<PaymentScheduleEntryResponse> generateSchedule(Long loanApplicationId) {
         LoanApplication application = loanApplicationRepository.findById(loanApplicationId)
                 .orElseThrow(() -> new LoanApplicationNotFoundException(
                         "Loan application not found with id " + loanApplicationId
@@ -54,7 +55,9 @@ public class PaymentScheduleService {
 
         application.setStatus(ApplicationStatus.IN_REVIEW);
 
-        return savedEntries;
+        return savedEntries.stream()
+                .map(PaymentScheduleEntryResponse::from)
+                .toList();
     }
 
     private List<PaymentScheduleEntry> buildScheduleEntries(LoanApplication application) {

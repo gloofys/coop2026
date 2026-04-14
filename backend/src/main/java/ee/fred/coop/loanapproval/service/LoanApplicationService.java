@@ -1,12 +1,16 @@
 package ee.fred.coop.loanapproval.service;
 
 import ee.fred.coop.loanapproval.domain.dto.CreateLoanApplicationRequest;
+import ee.fred.coop.loanapproval.domain.dto.LoanApplicationDetailsResponse;
 import ee.fred.coop.loanapproval.domain.dto.LoanApplicationResponse;
 import ee.fred.coop.loanapproval.domain.entity.LoanApplication;
+import ee.fred.coop.loanapproval.domain.entity.PaymentScheduleEntry;
 import ee.fred.coop.loanapproval.domain.enums.ApplicationStatus;
 import ee.fred.coop.loanapproval.domain.enums.RejectionReason;
 import ee.fred.coop.loanapproval.exception.DuplicateActiveApplicationException;
+import ee.fred.coop.loanapproval.exception.LoanApplicationNotFoundException;
 import ee.fred.coop.loanapproval.repository.LoanApplicationRepository;
+import ee.fred.coop.loanapproval.repository.PaymentScheduleEntryRepository;
 import ee.fred.coop.loanapproval.validation.EstonianPersonalCodeValidator;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -18,15 +22,18 @@ import java.util.List;
 public class LoanApplicationService {
 
     private final LoanApplicationRepository loanApplicationRepository;
+    private final PaymentScheduleEntryRepository paymentScheduleEntryRepository;
     private final EstonianPersonalCodeValidator personalCodeValidator;
     private final int maxCustomerAge;
 
     public LoanApplicationService(
             LoanApplicationRepository loanApplicationRepository,
+            PaymentScheduleEntryRepository paymentScheduleEntryRepository,
             EstonianPersonalCodeValidator personalCodeValidator,
             @Value("${app.loan.max-customer-age}") int maxCustomerAge
     ) {
         this.loanApplicationRepository = loanApplicationRepository;
+        this.paymentScheduleEntryRepository = paymentScheduleEntryRepository;
         this.personalCodeValidator = personalCodeValidator;
         this.maxCustomerAge = maxCustomerAge;
     }
@@ -78,5 +85,18 @@ public class LoanApplicationService {
 
         LoanApplication savedApplication = loanApplicationRepository.save(application);
         return LoanApplicationResponse.from(savedApplication);
+    }
+
+    @Transactional(readOnly = true)
+    public LoanApplicationDetailsResponse getApplicationDetails(Long loanApplicationId) {
+        LoanApplication application = loanApplicationRepository.findById(loanApplicationId)
+                .orElseThrow(() -> new LoanApplicationNotFoundException(
+                        "Loan application not found with id " + loanApplicationId
+                ));
+
+        List<PaymentScheduleEntry> scheduleEntries =
+                paymentScheduleEntryRepository.findByLoanApplicationIdOrderByPaymentNumberAsc(loanApplicationId);
+
+        return LoanApplicationDetailsResponse.from(application, scheduleEntries);
     }
 }
