@@ -5,35 +5,52 @@ import ee.fred.coop.loanapproval.domain.dto.LoanApplicationResponse;
 import ee.fred.coop.loanapproval.domain.entity.LoanApplication;
 import ee.fred.coop.loanapproval.domain.enums.ApplicationStatus;
 import ee.fred.coop.loanapproval.domain.enums.RejectionReason;
+import ee.fred.coop.loanapproval.exception.DuplicateActiveApplicationException;
 import ee.fred.coop.loanapproval.repository.LoanApplicationRepository;
 import ee.fred.coop.loanapproval.validation.EstonianPersonalCodeValidator;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 @Service
 public class LoanApplicationService {
 
-    private static final int MAX_CUSTOMER_AGE = 70;
-
     private final LoanApplicationRepository loanApplicationRepository;
     private final EstonianPersonalCodeValidator personalCodeValidator;
+    private final int maxCustomerAge;
 
     public LoanApplicationService(
             LoanApplicationRepository loanApplicationRepository,
-            EstonianPersonalCodeValidator personalCodeValidator
+            EstonianPersonalCodeValidator personalCodeValidator,
+            @Value("${app.loan.max-customer-age}") int maxCustomerAge
     ) {
         this.loanApplicationRepository = loanApplicationRepository;
         this.personalCodeValidator = personalCodeValidator;
+        this.maxCustomerAge = maxCustomerAge;
     }
 
     @Transactional
     public LoanApplicationResponse createApplication(CreateLoanApplicationRequest request) {
         personalCodeValidator.validate(request.getPersonalCode());
+
+        boolean hasActiveApplication = loanApplicationRepository.existsByPersonalCodeAndStatusIn(
+                request.getPersonalCode(),
+                List.of(ApplicationStatus.SUBMITTED, ApplicationStatus.IN_REVIEW)
+        );
+
+        if (hasActiveApplication) {
+            throw new DuplicateActiveApplicationException(
+                    "Customer already has an active loan application"
+            );
+        }
+
         int age = personalCodeValidator.getAge(request.getPersonalCode());
 
         LoanApplication application;
 
-        if (age > MAX_CUSTOMER_AGE) {
+        if (age > maxCustomerAge) {
             application = new LoanApplication(
                     request.getFirstName(),
                     request.getLastName(),
