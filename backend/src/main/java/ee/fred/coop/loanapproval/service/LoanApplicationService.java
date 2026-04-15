@@ -3,11 +3,13 @@ package ee.fred.coop.loanapproval.service;
 import ee.fred.coop.loanapproval.domain.dto.CreateLoanApplicationRequest;
 import ee.fred.coop.loanapproval.domain.dto.LoanApplicationDetailsResponse;
 import ee.fred.coop.loanapproval.domain.dto.LoanApplicationResponse;
+import ee.fred.coop.loanapproval.domain.dto.RejectLoanApplicationRequest;
 import ee.fred.coop.loanapproval.domain.entity.LoanApplication;
 import ee.fred.coop.loanapproval.domain.entity.PaymentScheduleEntry;
 import ee.fred.coop.loanapproval.domain.enums.ApplicationStatus;
 import ee.fred.coop.loanapproval.domain.enums.RejectionReason;
 import ee.fred.coop.loanapproval.exception.DuplicateActiveApplicationException;
+import ee.fred.coop.loanapproval.exception.InvalidApplicationStateException;
 import ee.fred.coop.loanapproval.exception.LoanApplicationNotFoundException;
 import ee.fred.coop.loanapproval.repository.LoanApplicationRepository;
 import ee.fred.coop.loanapproval.repository.PaymentScheduleEntryRepository;
@@ -98,5 +100,47 @@ public class LoanApplicationService {
                 paymentScheduleEntryRepository.findByLoanApplicationIdOrderByPaymentNumberAsc(loanApplicationId);
 
         return LoanApplicationDetailsResponse.from(application, scheduleEntries);
+    }
+    @Transactional
+    public LoanApplicationResponse approveApplication(Long loanApplicationId) {
+        LoanApplication application = loanApplicationRepository.findById(loanApplicationId)
+                .orElseThrow(() -> new LoanApplicationNotFoundException(
+                        "Loan application not found with id " + loanApplicationId
+                ));
+
+        if (application.getStatus() != ApplicationStatus.IN_REVIEW) {
+            throw new InvalidApplicationStateException(
+                    "Only IN_REVIEW applications can be approved"
+            );
+        }
+
+        application.setStatus(ApplicationStatus.APPROVED);
+        application.setRejectionReason(null);
+
+        LoanApplication savedApplication = loanApplicationRepository.save(application);
+        return LoanApplicationResponse.from(savedApplication);
+    }
+
+    @Transactional
+    public LoanApplicationResponse rejectApplication(
+            Long loanApplicationId,
+            RejectLoanApplicationRequest request
+    ) {
+        LoanApplication application = loanApplicationRepository.findById(loanApplicationId)
+                .orElseThrow(() -> new LoanApplicationNotFoundException(
+                        "Loan application not found with id " + loanApplicationId
+                ));
+
+        if (application.getStatus() != ApplicationStatus.IN_REVIEW) {
+            throw new InvalidApplicationStateException(
+                    "Only IN_REVIEW applications can be rejected"
+            );
+        }
+
+        application.setStatus(ApplicationStatus.REJECTED);
+        application.setRejectionReason(request.getReason());
+
+        LoanApplication savedApplication = loanApplicationRepository.save(application);
+        return LoanApplicationResponse.from(savedApplication);
     }
 }

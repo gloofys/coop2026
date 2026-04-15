@@ -4,6 +4,7 @@ import ee.fred.coop.loanapproval.domain.dto.CreateLoanApplicationRequest;
 import ee.fred.coop.loanapproval.domain.dto.LoanApplicationDetailsResponse;
 import ee.fred.coop.loanapproval.domain.dto.LoanApplicationResponse;
 import ee.fred.coop.loanapproval.domain.dto.PaymentScheduleEntryResponse;
+import ee.fred.coop.loanapproval.domain.dto.RejectLoanApplicationRequest;
 import ee.fred.coop.loanapproval.service.LoanApplicationService;
 import ee.fred.coop.loanapproval.service.PaymentScheduleService;
 import jakarta.validation.Valid;
@@ -42,5 +43,18 @@ public class LoanApplicationController {
     @ResponseStatus(HttpStatus.CREATED)
     public List<PaymentScheduleEntryResponse> generateSchedule(@PathVariable Long id) {
         return paymentScheduleService.generateSchedule(id);
+    }
+
+    @PostMapping("/{id}/approve")
+    public LoanApplicationResponse approveApplication(@PathVariable Long id) {
+        return loanApplicationService.approveApplication(id);
+    }
+
+    @PostMapping("/{id}/reject")
+    public LoanApplicationResponse rejectApplication(
+            @PathVariable Long id,
+            @Valid @RequestBody RejectLoanApplicationRequest request
+    ) {
+        return loanApplicationService.rejectApplication(id, request);
     }
 }
