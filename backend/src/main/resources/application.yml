@@ -1,17 +1,15 @@
-
-
 server:
   port: 8080
 
 app:
   loan:
-    max-customer-age: 70
+    max-customer-age: ${APP_LOAN_MAX_CUSTOMER_AGE:70}
 
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/loan_db
-    username: loan_user
-    password: loan_password
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/loan_db}
+    username: ${SPRING_DATASOURCE_USERNAME:loan_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:loan_password}
   jpa:
     hibernate:
       ddl-auto: validate
