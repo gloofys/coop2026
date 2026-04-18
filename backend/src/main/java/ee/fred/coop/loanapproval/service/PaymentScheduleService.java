@@ -39,7 +39,7 @@ public class PaymentScheduleService {
 
     @Transactional
     public List<PaymentScheduleEntryResponse> generateSchedule(Long loanApplicationId) {
-        LoanApplication application = loanApplicationRepository.findById(loanApplicationId)
+        LoanApplication application = loanApplicationRepository.findByIdForUpdate(loanApplicationId)
                 .orElseThrow(() -> new LoanApplicationNotFoundException(
                         "Loan application not found with id " + loanApplicationId
                 ));

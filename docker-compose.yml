@@ -2,6 +2,7 @@ services:
   postgres:
     image: postgres:16
     container_name: coop-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: loan_db
       POSTGRES_USER: loan_user
@@ -10,14 +11,21 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U loan_user -d loan_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: coop-backend
+    restart: unless-stopped
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/loan_db
       SPRING_DATASOURCE_USERNAME: loan_user

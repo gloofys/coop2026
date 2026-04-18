@@ -15,6 +15,7 @@ import ee.fred.coop.loanapproval.repository.LoanApplicationRepository;
 import ee.fred.coop.loanapproval.repository.PaymentScheduleEntryRepository;
 import ee.fred.coop.loanapproval.validation.EstonianPersonalCodeValidator;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,6 +44,24 @@ public class LoanApplicationService {
     @Transactional
     public LoanApplicationResponse createApplication(CreateLoanApplicationRequest request) {
         personalCodeValidator.validate(request.getPersonalCode());
+        int age = personalCodeValidator.getAge(request.getPersonalCode());
+
+        if (age > maxCustomerAge) {
+            LoanApplication rejectedApplication = new LoanApplication(
+                    request.getFirstName(),
+                    request.getLastName(),
+                    request.getPersonalCode(),
+                    request.getLoanPeriodMonths(),
+                    request.getInterestMargin(),
+                    request.getBaseInterestRate(),
+                    request.getLoanAmount(),
+                    ApplicationStatus.REJECTED,
+                    RejectionReason.CUSTOMER_TOO_OLD
+            );
+
+            LoanApplication savedApplication = loanApplicationRepository.save(rejectedApplication);
+            return LoanApplicationResponse.from(savedApplication);
+        }
 
         boolean hasActiveApplication = loanApplicationRepository.existsByPersonalCodeAndStatusIn(
                 request.getPersonalCode(),
@@ -55,37 +74,31 @@ public class LoanApplicationService {
             );
         }
 
-        int age = personalCodeValidator.getAge(request.getPersonalCode());
+        LoanApplication application = new LoanApplication(
+                request.getFirstName(),
+                request.getLastName(),
+                request.getPersonalCode(),
+                request.getLoanPeriodMonths(),
+                request.getInterestMargin(),
+                request.getBaseInterestRate(),
+                request.getLoanAmount(),
+                ApplicationStatus.SUBMITTED,
+                null
+        );
 
-        LoanApplication application;
+        LoanApplication savedApplication;
+        try {
+            savedApplication = loanApplicationRepository.save(application);
+        } catch (DataIntegrityViolationException exception) {
+            if (isActiveApplicationConflict(exception)) {
+                throw new DuplicateActiveApplicationException(
+                        "Customer already has an active loan application"
+                );
+            }
 
-        if (age > maxCustomerAge) {
-            application = new LoanApplication(
-                    request.getFirstName(),
-                    request.getLastName(),
-                    request.getPersonalCode(),
-                    request.getLoanPeriodMonths(),
-                    request.getInterestMargin(),
-                    request.getBaseInterestRate(),
-                    request.getLoanAmount(),
-                    ApplicationStatus.REJECTED,
-                    RejectionReason.CUSTOMER_TOO_OLD
-            );
-        } else {
-            application = new LoanApplication(
-                    request.getFirstName(),
-                    request.getLastName(),
-                    request.getPersonalCode(),
-                    request.getLoanPeriodMonths(),
-                    request.getInterestMargin(),
-                    request.getBaseInterestRate(),
-                    request.getLoanAmount(),
-                    ApplicationStatus.SUBMITTED,
-                    null
-            );
+            throw exception;
         }
 
-        LoanApplication savedApplication = loanApplicationRepository.save(application);
         return LoanApplicationResponse.from(savedApplication);
     }
 
@@ -103,7 +116,7 @@ public class LoanApplicationService {
     }
     @Transactional
     public LoanApplicationResponse approveApplication(Long loanApplicationId) {
-        LoanApplication application = loanApplicationRepository.findById(loanApplicationId)
+        LoanApplication application = loanApplicationRepository.findByIdForUpdate(loanApplicationId)
                 .orElseThrow(() -> new LoanApplicationNotFoundException(
                         "Loan application not found with id " + loanApplicationId
                 ));
@@ -126,7 +139,7 @@ public class LoanApplicationService {
             Long loanApplicationId,
             RejectLoanApplicationRequest request
     ) {
-        LoanApplication application = loanApplicationRepository.findById(loanApplicationId)
+        LoanApplication application = loanApplicationRepository.findByIdForUpdate(loanApplicationId)
                 .orElseThrow(() -> new LoanApplicationNotFoundException(
                         "Loan application not found with id " + loanApplicationId
                 ));
@@ -142,5 +155,19 @@ public class LoanApplicationService {
 
         LoanApplication savedApplication = loanApplicationRepository.save(application);
         return LoanApplicationResponse.from(savedApplication);
+    }
+
+    private boolean isActiveApplicationConflict(DataIntegrityViolationException exception) {
+        Throwable cause = exception;
+
+        while (cause != null) {
+            String message = cause.getMessage();
+            if (message != null && message.contains("uq_loan_application_active_personal_code")) {
+                return true;
+            }
+            cause = cause.getCause();
+        }
+
+        return false;
     }
 }
