@@ -3,6 +3,7 @@ package ee.fred.coop.loanapproval.exception;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -51,21 +52,22 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(response);
     }
 
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiErrorResponse> handleTechnicalError(
-            Exception exception,
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiErrorResponse> handleUnreadableMessage(
+            HttpMessageNotReadableException exception,
             HttpServletRequest request
     ) {
         ApiErrorResponse response = new ApiErrorResponse(
                 LocalDateTime.now(),
-                HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                "Technical error",
-                "Unexpected server error",
+                HttpStatus.BAD_REQUEST.value(),
+                "Validation error",
+                "Request body is malformed or contains unsupported values",
                 request.getRequestURI()
         );
 
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+        return ResponseEntity.badRequest().body(response);
     }
+
     @ExceptionHandler(DuplicateActiveApplicationException.class)
     public ResponseEntity<ApiErrorResponse> handleDuplicateActiveApplication(
             DuplicateActiveApplicationException exception,
@@ -81,6 +83,7 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
     }
+
     @ExceptionHandler(LoanApplicationNotFoundException.class)
     public ResponseEntity<ApiErrorResponse> handleLoanApplicationNotFound(
             LoanApplicationNotFoundException exception,
@@ -112,5 +115,20 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
     }
-}
 
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiErrorResponse> handleTechnicalError(
+            Exception exception,
+            HttpServletRequest request
+    ) {
+        ApiErrorResponse response = new ApiErrorResponse(
+                LocalDateTime.now(),
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                "Technical error",
+                "Unexpected server error",
+                request.getRequestURI()
+        );
+
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+    }
+}
