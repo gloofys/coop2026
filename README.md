@@ -18,9 +18,7 @@ Projekti root kaustas käivita:
 docker compose up --build
 ```
 
-Pärast edukat käivitust on backend kättesaadav aadressil:
-
-`http://localhost:8080`
+Pärast edukat käivitust töötab backend pordil 8080.
 
 Swagger UI:
 
@@ -191,7 +189,7 @@ coop-loan-approval/
 
 - Andmebaasi skeemi haldamiseks kasutatakse Flyway migratsioone.
 - OpenAPI dokumentatsioon on kättesaadav Swagger UI kaudu.
-- Äriloogika katmiseks on lisatud Mockito põhised ühikutestid.
+- Äriloogika katmiseks on lisatud Mockito põhised testid.
 - Lahendus keskendub backendi põhifunktsionaalsusele.
 
 ## Võimalikud edasiarendused
