@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -80,8 +81,6 @@ class LoanApplicationServiceTest {
         CreateLoanApplicationRequest request = buildRequest();
 
         doNothing().when(personalCodeValidator).validate(request.getPersonalCode());
-        when(loanApplicationRepository.existsByPersonalCodeAndStatusIn(anyString(), anyCollection()))
-                .thenReturn(false);
         when(personalCodeValidator.getAge(request.getPersonalCode())).thenReturn(75);
 
         when(loanApplicationRepository.save(any(LoanApplication.class)))
@@ -106,10 +105,34 @@ class LoanApplicationServiceTest {
     }
 
     @Test
+    void createApplication_shouldSaveRejectedApplication_whenApplicantIsTooOldEvenIfActiveApplicationExists() {
+        CreateLoanApplicationRequest request = buildRequest();
+
+        doNothing().when(personalCodeValidator).validate(request.getPersonalCode());
+        when(personalCodeValidator.getAge(request.getPersonalCode())).thenReturn(75);
+        when(loanApplicationRepository.save(any(LoanApplication.class)))
+                .thenAnswer(invocation -> {
+                    LoanApplication application = invocation.getArgument(0);
+                    setPrivateField(application, "id", 3L);
+                    setPrivateField(application, "createdAt", LocalDateTime.now());
+                    return application;
+                });
+
+        LoanApplicationResponse response = loanApplicationService.createApplication(request);
+
+        assertEquals(ApplicationStatus.REJECTED, response.getStatus());
+        assertEquals(RejectionReason.CUSTOMER_TOO_OLD, response.getRejectionReason());
+
+        verify(loanApplicationRepository, never()).existsByPersonalCodeAndStatusIn(anyString(), anyCollection());
+        verify(loanApplicationRepository).save(any(LoanApplication.class));
+    }
+
+    @Test
     void createApplication_shouldThrowException_whenCustomerAlreadyHasActiveApplication() {
         CreateLoanApplicationRequest request = buildRequest();
 
         doNothing().when(personalCodeValidator).validate(request.getPersonalCode());
+        when(personalCodeValidator.getAge(request.getPersonalCode())).thenReturn(30);
         when(loanApplicationRepository.existsByPersonalCodeAndStatusIn(anyString(), anyCollection()))
                 .thenReturn(true);
 
@@ -119,7 +142,26 @@ class LoanApplicationServiceTest {
         );
 
         verify(loanApplicationRepository, never()).save(any());
-        verify(personalCodeValidator, never()).getAge(anyString());
+        verify(personalCodeValidator).getAge(request.getPersonalCode());
+    }
+
+    @Test
+    void createApplication_shouldThrowException_whenDatabaseConstraintRejectsSecondActiveApplication() {
+        CreateLoanApplicationRequest request = buildRequest();
+
+        doNothing().when(personalCodeValidator).validate(request.getPersonalCode());
+        when(personalCodeValidator.getAge(request.getPersonalCode())).thenReturn(30);
+        when(loanApplicationRepository.existsByPersonalCodeAndStatusIn(anyString(), anyCollection()))
+                .thenReturn(false);
+        when(loanApplicationRepository.save(any(LoanApplication.class)))
+                .thenThrow(new DataIntegrityViolationException(
+                        "duplicate key value violates unique constraint \"uq_loan_application_active_personal_code\""
+                ));
+
+        assertThrows(
+                DuplicateActiveApplicationException.class,
+                () -> loanApplicationService.createApplication(request)
+        );
     }
 
     @Test

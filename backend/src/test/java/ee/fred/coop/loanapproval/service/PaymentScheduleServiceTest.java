@@ -41,7 +41,7 @@ class PaymentScheduleServiceTest {
     void generateSchedule_shouldGenerateEntriesAndMoveApplicationToInReview_whenApplicationIsSubmitted() {
         LoanApplication application = buildApplication(ApplicationStatus.SUBMITTED);
 
-        when(loanApplicationRepository.findById(1L)).thenReturn(Optional.of(application));
+        when(loanApplicationRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(application));
         when(paymentScheduleEntryRepository.saveAll(anyList()))
                 .thenAnswer(invocation -> {
                     List<PaymentScheduleEntry> entries = invocation.getArgument(0);
@@ -64,13 +64,13 @@ class PaymentScheduleServiceTest {
         assertNotNull(firstEntry.getInterestPayment());
         assertNotNull(firstEntry.getRemainingBalance());
 
-        verify(loanApplicationRepository).findById(1L);
+        verify(loanApplicationRepository).findByIdForUpdate(1L);
         verify(paymentScheduleEntryRepository).saveAll(anyList());
     }
 
     @Test
     void generateSchedule_shouldThrowException_whenApplicationIsNotFound() {
-        when(loanApplicationRepository.findById(99L)).thenReturn(Optional.empty());
+        when(loanApplicationRepository.findByIdForUpdate(99L)).thenReturn(Optional.empty());
 
         assertThrows(
                 LoanApplicationNotFoundException.class,
@@ -84,7 +84,7 @@ class PaymentScheduleServiceTest {
     void generateSchedule_shouldThrowException_whenApplicationIsNotSubmitted() {
         LoanApplication application = buildApplication(ApplicationStatus.IN_REVIEW);
 
-        when(loanApplicationRepository.findById(1L)).thenReturn(Optional.of(application));
+        when(loanApplicationRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(application));
 
         assertThrows(
                 InvalidApplicationStateException.class,
@@ -98,7 +98,7 @@ class PaymentScheduleServiceTest {
     void generateSchedule_shouldCreateZeroInterestSchedule_whenInterestRateIsZero() {
         LoanApplication application = buildZeroInterestApplication(ApplicationStatus.SUBMITTED);
 
-        when(loanApplicationRepository.findById(1L)).thenReturn(Optional.of(application));
+        when(loanApplicationRepository.findByIdForUpdate(1L)).thenReturn(Optional.of(application));
         when(paymentScheduleEntryRepository.saveAll(anyList()))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
